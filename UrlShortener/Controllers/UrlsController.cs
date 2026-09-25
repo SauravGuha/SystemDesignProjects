@@ -34,14 +34,18 @@ public class UrlsController : ControllerBase
     }
 
     [HttpGet("{shortCode}")]
-    public async Task<IActionResult> GetActualUrl(string shortCode)
+    public async Task<IActionResult> GetActualUrl(string shortCode, CancellationToken cancellationToken)
     {
         //obtain the actual url
-        return Redirect("actual url");
+        var urlData = this.shortUrlDbContext.ShortUrls.FirstOrDefault(e => e.ShortCode == shortCode);
+        if (urlData != null)
+            return Redirect(urlData.LongUrl);
+        else
+            return NotFound($"{shortCode} not found");
     }
 
     [HttpGet("{shortCode}/stats")]
-    public async Task<IActionResult> UrlStats(string shortUrl)
+    public async Task<IActionResult> UrlStats(string shortCode)
     {
         //obtain the url stats
         return Ok("");
