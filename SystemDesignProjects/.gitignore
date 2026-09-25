@@ -1,0 +1,18 @@
+# .NET Core
+obj/
+bin/
+*.log
+*.tmp
+*.bak
+
+# VS Code
+.vscode/
+
+# Unity (if applicable)
+Assets/
+Temp/
+
+# Misc
+*.user
+*.csproj.user
+*.vspscc
