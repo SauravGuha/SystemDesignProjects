@@ -8,7 +8,7 @@ public class ShortUrl
     [Key]
     public Guid Id { get; private set; }
 
-    [MaxLength(10)]
+    [MaxLength(250)]
     [Required]
     public string ShortCode { get; private set; }
 
