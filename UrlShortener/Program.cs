@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using UrlShortener.Data;
 using UrlShortener.Interfaces;
+using UrlShortener.Middleware;
 using UrlShortener.Services;
 
 namespace UrlShortener;
@@ -22,6 +23,7 @@ public class Program
             options.UseSqlServer(builder.Configuration.GetConnectionString("shorturl"));
         });
         builder.Services.AddScoped<IShortCodeGenerator, HashShortCodeGenerator>();
+        builder.Services.AddSingleton<HeaderMiddleware>();
 
 
         var app = builder.Build();
@@ -36,6 +38,7 @@ public class Program
         }
 
         app.UseAuthorization();
+        app.UseMiddleware<HeaderMiddleware>();
         app.MapControllers();
 
         MigrateAsync(app.Services)
