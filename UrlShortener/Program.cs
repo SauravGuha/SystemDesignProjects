@@ -24,6 +24,7 @@ public class Program
         });
         builder.Services.AddScoped<IShortCodeGenerator, HashShortCodeGenerator>();
         builder.Services.AddSingleton<HeaderMiddleware>();
+        builder.Services.AddSingleton<IApplicationCache, ApplicationRedisCache>();
 
 
         var app = builder.Build();

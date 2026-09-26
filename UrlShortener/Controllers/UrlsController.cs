@@ -14,23 +14,36 @@ public class UrlsController : ControllerBase
     private readonly ILogger<UrlsController> logger;
     private readonly ShortUrlDbContext shortUrlDbContext;
     private readonly IShortCodeGenerator shortCodeGenerator;
+    private readonly IApplicationCache applicationCache;
 
     public UrlsController(ILogger<UrlsController> logger,
-    ShortUrlDbContext shortUrlDbContext, IShortCodeGenerator shortCodeGenerator)
+    ShortUrlDbContext shortUrlDbContext, IShortCodeGenerator shortCodeGenerator, IApplicationCache applicationCache)
     {
         this.logger = logger;
         this.shortUrlDbContext = shortUrlDbContext;
         this.shortCodeGenerator = shortCodeGenerator;
+        this.applicationCache = applicationCache;
     }
 
     [HttpPost]
     public async Task<IActionResult> ShortenUrl([FromBody] UrlsRequest data, CancellationToken cancellationToken)
     {
-        var hash = shortCodeGenerator.GenerateShortCode(data.Url);
-        var shortUrl = new ShortUrl(hash, data.Url);
-        this.shortUrlDbContext.ShortUrls.Add(shortUrl);
-        await this.shortUrlDbContext.SaveChangesAsync(cancellationToken);
-        return Ok(new { shortUrl = hash });
+        var idempotentKey = this.HttpContext.Items["Idempotent-Key"]!.ToString();
+        var processing = await this.applicationCache.GetValueAsync(idempotentKey!, cancellationToken);
+        if (string.IsNullOrWhiteSpace(processing))
+        {
+            var hash = shortCodeGenerator.GenerateShortCode(data.Url);
+            var shortUrl = new ShortUrl(hash, data.Url);
+            this.shortUrlDbContext.ShortUrls.Add(shortUrl);
+            await Task.Delay(10000);
+            await this.shortUrlDbContext.SaveChangesAsync(cancellationToken);
+            await this.applicationCache.DeleteKeyAsync(idempotentKey!, cancellationToken);
+            return Ok(new { shortUrl = hash });
+        }
+        else
+        {
+            return Conflict($"{idempotentKey} is already under process");
+        }
     }
 
     [HttpGet("{shortCode}")]
