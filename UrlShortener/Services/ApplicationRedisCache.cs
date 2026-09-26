@@ -11,7 +11,6 @@ public class ApplicationRedisCache : IApplicationCache
 {
     private string? connectionString;
     private ConnectionMultiplexer connectionMultiplexer;
-    private IDatabase _database;
 
     public ApplicationRedisCache(IConfiguration configuration)
     {
@@ -19,25 +18,34 @@ public class ApplicationRedisCache : IApplicationCache
         if (string.IsNullOrWhiteSpace(this.connectionString))
             throw new ArgumentNullException("redissocket connection not found");
         this.connectionMultiplexer = ConnectionMultiplexer.Connect(this.connectionString);
-        this._database = connectionMultiplexer.GetDatabase();
     }
+
     public async Task<string?> GetValueAsync(string key, CancellationToken cancellationToken)
     {
-        var data = await this._database.StringGetAsync(key);
-        return data;
+        var database = connectionMultiplexer.GetDatabase();
+        var batch = database.CreateBatch();
+        var getTask = batch.StringGetAsync(key);
+        var expireTask = batch.KeyExpireAsync(key, TimeSpan.FromMinutes(5));
+        batch.Execute();
+        await Task.WhenAll(getTask, expireTask);
+
+        var value = await getTask;
+        return value.HasValue ? value.ToString() : null;
     }
 
     public async Task SetValueAsync(string key, string value, CancellationToken cancellationToken)
     {
-        await this._database.StringSetAsync(key, value);
+        var database = connectionMultiplexer.GetDatabase();
+        await database.StringSetAsync(key, value, TimeSpan.FromMinutes(10));
     }
 
     public async Task<Boolean> DeleteKeyAsync(string key, CancellationToken token)
     {
-        bool _isKeyExist = await _database.KeyExistsAsync(key);
+        var database = connectionMultiplexer.GetDatabase();
+        bool _isKeyExist = await database.KeyExistsAsync(key);
         if (_isKeyExist == true)
         {
-            return await _database.KeyDeleteAsync(key);
+            return await database.KeyDeleteAsync(key);
         }
         return false;
     }
