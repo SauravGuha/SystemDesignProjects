@@ -29,16 +29,24 @@ public class UrlsController : ControllerBase
     public async Task<IActionResult> ShortenUrl([FromBody] UrlsRequest data, CancellationToken cancellationToken)
     {
         var idempotentKey = this.HttpContext.Items["Idempotent-Key"]!.ToString();
-        var processing = await this.applicationCache.GetValueAsync(idempotentKey!, cancellationToken);
-        if (string.IsNullOrWhiteSpace(processing))
+        var redisKey = await this.applicationCache.GetValueAsync<string>(idempotentKey!, cancellationToken);
+        if (redisKey!.RequestStatus == Models.RequestStatus.Pending)
         {
+            redisKey.RequestStatus = Models.RequestStatus.Processing;
+            await applicationCache.SetValueAsync(idempotentKey!, redisKey, cancellationToken);
             var hash = shortCodeGenerator.GenerateShortCode(data.Url);
             var shortUrl = new ShortUrl(hash, data.Url);
             this.shortUrlDbContext.ShortUrls.Add(shortUrl);
             await Task.Delay(10000);
             await this.shortUrlDbContext.SaveChangesAsync(cancellationToken);
-            await this.applicationCache.DeleteKeyAsync(idempotentKey!, cancellationToken);
+            redisKey.RequestStatus = Models.RequestStatus.Completed;
+            redisKey.Value = hash;
+            await applicationCache.SetValueAsync(idempotentKey!, redisKey, cancellationToken);
             return Ok(new { shortUrl = hash });
+        }
+        else if (redisKey.RequestStatus == Models.RequestStatus.Completed)
+        {
+            return Ok(new { shortUrl = redisKey.Value });
         }
         else
         {
@@ -52,7 +60,7 @@ public class UrlsController : ControllerBase
         //obtain the actual url
         var urlData = this.shortUrlDbContext.ShortUrls.FirstOrDefault(e => e.ShortCode == shortCode);
         if (urlData != null)
-            return Redirect(urlData.LongUrl);
+            return Ok(new { shortUrl = urlData.LongUrl });
         else
             return NotFound($"{shortCode} not found");
     }

@@ -1,11 +1,13 @@
 
+using UrlShortener.Models;
+
 namespace UrlShortener.Interfaces;
 
 public interface IApplicationCache
 {
-    Task<string?> GetValueAsync(string key, CancellationToken cancellationToken);
+    Task<CacheModels<T>?> GetValueAsync<T>(string key, CancellationToken cancellationToken);
 
-    Task SetValueAsync(string key, string value, CancellationToken cancellationToken);
+    Task SetValueAsync<T>(string key, CacheModels<T> value, CancellationToken cancellationToken);
 
-    Task<Boolean> DeleteKeyAsync(string key, CancellationToken token);
+    Task<bool> DeleteKeyAsync(string key, CancellationToken token);
 }

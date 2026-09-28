@@ -1,6 +1,7 @@
 
 using System.Net;
 using UrlShortener.Interfaces;
+using UrlShortener.Models;
 
 namespace UrlShortener.Middleware;
 
@@ -27,8 +28,17 @@ public class HeaderMiddleware : IMiddleware
             }
             else
             {
+                var redisKey = await applicationCache.GetValueAsync<string>(iValue!, CancellationToken.None);
+                if (redisKey == null)
+                {
+                    var cacheModel = new CacheModels<string>
+                    {
+                        Value = "",
+                        RequestStatus = RequestStatus.Pending
+                    };
+                    await applicationCache.SetValueAsync(iValue!, cacheModel, CancellationToken.None);
+                }
                 context.Items.Add("Idempotent-Key", iValue);
-                await applicationCache.SetValueAsync(iValue!, true.ToString(), CancellationToken.None);
             }
         }
         await next(context);

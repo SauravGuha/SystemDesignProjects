@@ -1,6 +1,8 @@
 
+using System.Text.Json;
 using StackExchange.Redis;
 using UrlShortener.Interfaces;
+using UrlShortener.Models;
 
 namespace UrlShortener.Services;
 
@@ -20,7 +22,7 @@ public class ApplicationRedisCache : IApplicationCache
         this.connectionMultiplexer = ConnectionMultiplexer.Connect(this.connectionString);
     }
 
-    public async Task<string?> GetValueAsync(string key, CancellationToken cancellationToken)
+    public async Task<CacheModels<T>?> GetValueAsync<T>(string key, CancellationToken cancellationToken)
     {
         var database = connectionMultiplexer.GetDatabase();
         var batch = database.CreateBatch();
@@ -30,16 +32,18 @@ public class ApplicationRedisCache : IApplicationCache
         await Task.WhenAll(getTask, expireTask);
 
         var value = await getTask;
-        return value.HasValue ? value.ToString() : null;
+        return value.HasValue
+        ? JsonSerializer.Deserialize<CacheModels<T>>(value.ToString())
+        : null;
     }
 
-    public async Task SetValueAsync(string key, string value, CancellationToken cancellationToken)
+    public async Task SetValueAsync<T>(string key, CacheModels<T> value, CancellationToken cancellationToken)
     {
         var database = connectionMultiplexer.GetDatabase();
-        await database.StringSetAsync(key, value, TimeSpan.FromMinutes(10));
+        await database.StringSetAsync(key, JsonSerializer.Serialize(value), TimeSpan.FromMinutes(10));
     }
 
-    public async Task<Boolean> DeleteKeyAsync(string key, CancellationToken token)
+    public async Task<bool> DeleteKeyAsync(string key, CancellationToken token)
     {
         var database = connectionMultiplexer.GetDatabase();
         bool _isKeyExist = await database.KeyExistsAsync(key);
