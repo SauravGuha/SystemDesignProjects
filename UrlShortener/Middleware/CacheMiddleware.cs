@@ -47,5 +47,9 @@ public class CacheMiddleware : IMiddleware
                 context.Response.Body = orginalBody;
             }
         }
+        else
+        {
+            await next(context);
+        }
     }
 }

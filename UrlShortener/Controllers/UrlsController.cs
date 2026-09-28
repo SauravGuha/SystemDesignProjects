@@ -34,14 +34,16 @@ public class UrlsController : ControllerBase
         {
             redisKey.RequestStatus = Models.RequestStatus.Processing;
             await applicationCache.SetValueAsync(idempotentKey!, redisKey, cancellationToken);
+
             var hash = shortCodeGenerator.GenerateShortCode(data.Url);
             var shortUrl = new ShortUrl(hash, data.Url);
             this.shortUrlDbContext.ShortUrls.Add(shortUrl);
-            await Task.Delay(10000);
             await this.shortUrlDbContext.SaveChangesAsync(cancellationToken);
+            await Task.Delay(5000);
             redisKey.RequestStatus = Models.RequestStatus.Completed;
             redisKey.Value = hash;
             await applicationCache.SetValueAsync(idempotentKey!, redisKey, cancellationToken);
+
             return Ok(new { shortUrl = hash });
         }
         else if (redisKey.RequestStatus == Models.RequestStatus.Completed)
