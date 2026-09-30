@@ -22,6 +22,9 @@ public class ShortUrl
 
     public int HitCount { get; private set; }
 
+    [Timestamp]
+    public byte[]? RowVersion { get; private set; }
+
     public ShortUrl(string shortCode, string longUrl)
     {
         Id = new Guid();

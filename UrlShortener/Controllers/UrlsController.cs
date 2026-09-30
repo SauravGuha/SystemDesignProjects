@@ -97,7 +97,14 @@ public class UrlsController : ControllerBase
         //obtain the actual url
         var urlData = this.shortUrlDbContext.ShortUrls.FirstOrDefault(e => e.ShortCode == shortCode);
         if (urlData != null)
-            return Ok(new { shortUrl = urlData.LongUrl });
+        {
+            //every time database gets hit, record the counter
+            urlData.UpdatehitCount();
+            await this.shortUrlDbContext.SaveChangesAsync(cancellationToken);
+
+            //Update redis cache, where key = shorturl, value = longurl
+            return Ok(new { longUrl = urlData.LongUrl });
+        }
         else
             return NotFound($"{shortCode} not found");
     }
