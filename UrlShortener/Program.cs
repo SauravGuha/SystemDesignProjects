@@ -24,7 +24,6 @@ public class Program
         });
         builder.Services.AddScoped<IShortCodeGenerator, HashShortCodeGenerator>();
         builder.Services.AddSingleton<HeaderMiddleware>();
-        builder.Services.AddSingleton<CacheMiddleware>();
         builder.Services.AddSingleton<IApplicationCache, ApplicationRedisCache>();
 
 
@@ -40,7 +39,6 @@ public class Program
         }
 
         app.UseAuthorization();
-        app.UseMiddleware<CacheMiddleware>();
         app.UseMiddleware<HeaderMiddleware>();
         app.MapControllers();
 

@@ -53,4 +53,51 @@ public class ApplicationRedisCache : IApplicationCache
         }
         return false;
     }
+
+    public async Task<string> TryAcquireIdempotencyAsync(
+    string key,
+    CancellationToken cancellationToken)
+    {
+        var database = connectionMultiplexer.GetDatabase();
+
+        var script = """
+        local value = redis.call('GET', KEYS[1])
+
+        if not value then
+            return 'NOT_FOUND'
+        end
+
+        local data = cjson.decode(value)
+
+        if data.RequestStatus == 0 then
+            data.RequestStatus = 1
+
+            redis.call(
+                'SET',
+                KEYS[1],
+                cjson.encode(data),
+                'EX',
+                600
+            )
+
+            return 'ACQUIRED'
+        end
+
+        if data.RequestStatus == 1 then
+            return 'IN_PROGRESS'
+        end
+
+        if data.RequestStatus == 2 then
+            return 'COMPLETED'
+        end
+
+        return 'UNKNOWN'
+        """;
+
+        var result = await database.ScriptEvaluateAsync(
+            script,
+            new RedisKey[] { key });
+
+        return result.ToString();
+    }
 }

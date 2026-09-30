@@ -4,6 +4,7 @@ using UrlShortener.Data;
 using UrlShortener.Data.Models;
 using UrlShortener.Dtos;
 using UrlShortener.Interfaces;
+using UrlShortener.Models;
 
 namespace UrlShortener.Controllers;
 
@@ -26,34 +27,68 @@ public class UrlsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> ShortenUrl([FromBody] UrlsRequest data, CancellationToken cancellationToken)
+    public async Task<IActionResult> ShortenUrl(
+        [FromBody] UrlsRequest data,
+        CancellationToken cancellationToken)
     {
-        var idempotentKey = this.HttpContext.Items["Idempotent-Key"]!.ToString();
-        var redisKey = await this.applicationCache.GetValueAsync<string>(idempotentKey!, cancellationToken);
-        if (redisKey!.RequestStatus == Models.RequestStatus.Pending)
-        {
-            redisKey.RequestStatus = Models.RequestStatus.Processing;
-            await applicationCache.SetValueAsync(idempotentKey!, redisKey, cancellationToken);
+        var idempotentKey =
+            HttpContext.Items["Idempotent-Key"]!.ToString()!;
 
-            var hash = shortCodeGenerator.GenerateShortCode(data.Url);
+        var result = await applicationCache
+            .TryAcquireIdempotencyAsync(
+                idempotentKey,
+                cancellationToken);
+
+        if (result == "IN_PROGRESS")
+        {
+            return Conflict(
+                $"{idempotentKey} is already under process");
+        }
+
+        if (result == "COMPLETED")
+        {
+            var completed =
+                await applicationCache.GetValueAsync<string>(
+                    idempotentKey,
+                    cancellationToken);
+
+            return Ok(new
+            {
+                shortUrl = completed!.Value
+            });
+        }
+
+        if (result == "ACQUIRED")
+        {
+            var hash =
+                shortCodeGenerator.GenerateShortCode(data.Url);
+
             var shortUrl = new ShortUrl(hash, data.Url);
-            this.shortUrlDbContext.ShortUrls.Add(shortUrl);
-            await this.shortUrlDbContext.SaveChangesAsync(cancellationToken);
-            await Task.Delay(5000);
-            redisKey.RequestStatus = Models.RequestStatus.Completed;
-            redisKey.Value = hash;
-            await applicationCache.SetValueAsync(idempotentKey!, redisKey, cancellationToken);
 
-            return Ok(new { shortUrl = hash });
+            shortUrlDbContext.ShortUrls.Add(shortUrl);
+
+            await shortUrlDbContext.SaveChangesAsync(
+                cancellationToken);
+
+            var completedValue =
+                new CacheModels<string>
+                {
+                    RequestStatus = RequestStatus.Completed,
+                    Value = hash
+                };
+
+            await applicationCache.SetValueAsync(
+                idempotentKey,
+                completedValue,
+                cancellationToken);
+
+            return Ok(new
+            {
+                shortUrl = hash
+            });
         }
-        else if (redisKey.RequestStatus == Models.RequestStatus.Completed)
-        {
-            return Ok(new { shortUrl = redisKey.Value });
-        }
-        else
-        {
-            return Conflict($"{idempotentKey} is already under process");
-        }
+
+        return BadRequest("Unable to process idempotency key");
     }
 
     [HttpGet("{shortCode}")]
@@ -73,4 +108,5 @@ public class UrlsController : ControllerBase
         //obtain the url stats
         return Ok("");
     }
+
 }

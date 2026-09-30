@@ -28,16 +28,6 @@ public class HeaderMiddleware : IMiddleware
             }
             else
             {
-                var redisKey = await applicationCache.GetValueAsync<string>(iValue!, CancellationToken.None);
-                if (redisKey == null)
-                {
-                    var cacheModel = new CacheModels<string>
-                    {
-                        Value = "",
-                        RequestStatus = RequestStatus.Pending
-                    };
-                    await applicationCache.SetValueAsync(iValue!, cacheModel, CancellationToken.None);
-                }
                 context.Items.Add("Idempotent-Key", iValue);
             }
         }

@@ -10,4 +10,8 @@ public interface IApplicationCache
     Task SetValueAsync<T>(string key, CacheModels<T> value, CancellationToken cancellationToken);
 
     Task<bool> DeleteKeyAsync(string key, CancellationToken token);
+
+    Task<string> TryAcquireIdempotencyAsync(
+    string key,
+    CancellationToken cancellationToken);
 }
