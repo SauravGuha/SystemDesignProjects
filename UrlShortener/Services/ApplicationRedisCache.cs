@@ -11,15 +11,11 @@ namespace UrlShortener.Services;
 /// </summary>
 public class ApplicationRedisCache : IApplicationCache
 {
-    private string? connectionString;
-    private ConnectionMultiplexer connectionMultiplexer;
+    private IConnectionMultiplexer connectionMultiplexer;
 
-    public ApplicationRedisCache(IConfiguration configuration)
+    public ApplicationRedisCache(IConnectionMultiplexer connectionMultiplexer)
     {
-        this.connectionString = configuration.GetConnectionString("redissocket");
-        if (string.IsNullOrWhiteSpace(this.connectionString))
-            throw new ArgumentNullException("redissocket connection not found");
-        this.connectionMultiplexer = ConnectionMultiplexer.Connect(this.connectionString);
+        this.connectionMultiplexer = connectionMultiplexer;
     }
 
     public async Task<CacheModels<T>?> GetValueAsync<T>(string key, CancellationToken cancellationToken)
