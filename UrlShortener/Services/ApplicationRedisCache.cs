@@ -96,4 +96,57 @@ public class ApplicationRedisCache : IApplicationCache
 
         return result.ToString();
     }
+
+    public async Task<string?> AcquireLockAsync(
+    string key,
+    TimeSpan expiry,
+    CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
+        var lockKey = $"lock:url:{key}";
+        if (expiry <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(expiry));
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var token = Guid.NewGuid().ToString("N");
+        var database = connectionMultiplexer.GetDatabase();
+
+        var acquired = await database.StringSetAsync(
+            lockKey,
+            token,
+            expiry,
+            When.NotExists);
+
+        return acquired ? token : null;
+    }
+
+    public async Task ReleaseLockAsync(
+        string key,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var lockKey = $"lock:url:{key}";
+        const string releaseScript = """
+        if redis.call('GET', KEYS[1]) == ARGV[1] then
+            return redis.call('DEL', KEYS[1])
+        end
+
+        return 0
+        """;
+
+        var database = connectionMultiplexer.GetDatabase();
+
+        await database.ScriptEvaluateAsync(
+            releaseScript,
+            new RedisKey[] { lockKey },
+            new RedisValue[] { token });
+    }
+
 }

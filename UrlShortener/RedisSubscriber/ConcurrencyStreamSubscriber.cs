@@ -57,7 +57,6 @@ public class ConcurrencyStreamSubscriber : BackgroundService
         catch (RedisServerException exception)
             when (exception.Message.Contains("BUSYGROUP"))
         {
-            this.logger.LogWarning("Consumer group already exists");
         }
 
         return Task.CompletedTask;

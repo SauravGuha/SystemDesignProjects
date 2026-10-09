@@ -14,4 +14,14 @@ public interface IApplicationCache
     Task<string> TryAcquireIdempotencyAsync(
     string key,
     CancellationToken cancellationToken);
+
+    Task<string?> AcquireLockAsync(
+    string key,
+    TimeSpan expiry,
+    CancellationToken cancellationToken);
+
+    Task ReleaseLockAsync(
+        string key,
+        string token,
+        CancellationToken cancellationToken);
 }

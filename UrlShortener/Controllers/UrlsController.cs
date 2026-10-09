@@ -18,7 +18,8 @@ public class UrlsController : ControllerBase
     private readonly IApplicationCache applicationCache;
 
     public UrlsController(ILogger<UrlsController> logger,
-    ShortUrlDbContext shortUrlDbContext, IShortCodeGenerator shortCodeGenerator, IApplicationCache applicationCache)
+    ShortUrlDbContext shortUrlDbContext, IShortCodeGenerator shortCodeGenerator,
+    IApplicationCache applicationCache)
     {
         this.logger = logger;
         this.shortUrlDbContext = shortUrlDbContext;
@@ -94,19 +95,51 @@ public class UrlsController : ControllerBase
     [HttpGet("{shortCode}")]
     public async Task<IActionResult> GetActualUrl(string shortCode, CancellationToken cancellationToken)
     {
-        //obtain the actual url
-        var urlData = this.shortUrlDbContext.ShortUrls.FirstOrDefault(e => e.ShortCode == shortCode);
-        if (urlData != null)
+        var cacheValue = await this.applicationCache.GetValueAsync<string>(shortCode, cancellationToken);
+        if (cacheValue == null)
         {
-            //every time database gets hit, record the counter
-            urlData.UpdatehitCount();
-            await this.shortUrlDbContext.SaveChangesAsync(cancellationToken);
+            var lockValue = await this.applicationCache.AcquireLockAsync(shortCode,
+            TimeSpan.FromSeconds(5), cancellationToken);
+            if (lockValue != null)
+            {
+                try
+                {
+                    cacheValue = await this.applicationCache.GetValueAsync<string>(shortCode, cancellationToken);
+                    if (cacheValue == null)
+                    {
+                        //obtain the actual url
+                        var urlData = this.shortUrlDbContext.ShortUrls.
+                        FirstOrDefault(e => e.ShortCode == shortCode);
+                        //every time database gets hit, record the counter
+                        if (urlData != null)
+                        {
+                            urlData.UpdatehitCount();
+                            await this.shortUrlDbContext.SaveChangesAsync(cancellationToken);
+                            await this.applicationCache.SetValueAsync(shortCode,
+                            new CacheModels<string>
+                            {
+                                Value = urlData.LongUrl
+                            }, cancellationToken);
+                            return Ok(new { longurl = urlData.LongUrl });
+                        }
+                        else
+                            return NotFound($"{shortCode} not found");
+                    }
+                    else
+                        return Ok(new { longurl = cacheValue.Value });
+                }
+                finally
+                {
+                    await this.applicationCache.ReleaseLockAsync(shortCode, lockValue, cancellationToken);
+                }
 
-            //Update redis cache, where key = shorturl, value = longurl
-            return Ok(new { longUrl = urlData.LongUrl });
+            }
+            else
+                return StatusCode(408);
         }
         else
-            return NotFound($"{shortCode} not found");
+            return Ok(new { longurl = cacheValue.Value });
+
     }
 
     [HttpGet("{shortCode}/stats")]
