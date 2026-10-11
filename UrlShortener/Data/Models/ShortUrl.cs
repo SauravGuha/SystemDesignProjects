@@ -27,7 +27,7 @@ public class ShortUrl
 
     public ShortUrl(string shortCode, string longUrl)
     {
-        Id = new Guid();
+        Id = Guid.NewGuid();
         this.ShortCode = shortCode;
         this.LongUrl = longUrl;
         this.CreatedAt = DateTime.UtcNow;

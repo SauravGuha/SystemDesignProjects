@@ -1,9 +1,12 @@
 
+using System.Net;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using UrlShortener.Data;
 using UrlShortener.Interfaces;
 using UrlShortener.Middleware;
+using UrlShortener.RateLimiters;
 using UrlShortener.Services;
 
 namespace UrlShortener;
@@ -31,9 +34,26 @@ public class Program
                 throw new ArgumentNullException("redissocket connection not found");
             return ConnectionMultiplexer.Connect(connectionString);
         });
+        // builder.Services.AddRateLimiter(options =>
+        // {
+        //     options.RejectionStatusCode = (int)HttpStatusCode.TooManyRequests;
+        //     options.AddFixedWindowLimiter("fixed", f =>
+        //     {
+        //         f.Window = TimeSpan.FromSeconds(10);
+        //         f.PermitLimit = 3;
+        //         f.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        //     });
+        // });
         builder.Services.AddScoped<IShortCodeGenerator, HashShortCodeGenerator>();
         builder.Services.AddSingleton<HeaderMiddleware>();
         builder.Services.AddSingleton<ExceptionMiddleware>();
+        builder.Services.AddSingleton(new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 3,
+            Window = TimeSpan.FromSeconds(10)
+        });
+        builder.Services.AddSingleton<IRateLimiter, FixedWindowLimiter>();
+        builder.Services.AddSingleton<AppRateLimiterMiddleware>();
         builder.Services.AddSingleton<IApplicationCache, ApplicationRedisCache>();
         builder.Services.AddSingleton<IConcurrencyPublisher, ApplicationConcurrencyPublisher>();
 
@@ -49,6 +69,8 @@ public class Program
             app.UseHttpsRedirection();
         }
 
+        //app.UseRateLimiter();
+        app.UseMiddleware<AppRateLimiterMiddleware>();
         app.UseMiddleware<ExceptionMiddleware>();
         app.UseAuthorization();
         app.UseMiddleware<HeaderMiddleware>();
