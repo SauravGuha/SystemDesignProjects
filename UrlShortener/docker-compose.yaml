@@ -41,7 +41,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: build #we want to build docker image upto "build" stage in docker
     container_name: urlshortenerapp
     depends_on:
       - redis
