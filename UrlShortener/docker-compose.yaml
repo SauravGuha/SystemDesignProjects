@@ -1,0 +1,63 @@
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssql
+    hostname: mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "@Bcd.1234"
+      MSSQL_MEMORY_LIMIT_MB: "1224"
+    ports:
+      - "9000:1433"
+    cpus: 1.0
+    mem_limit: 1224m
+    volumes:
+      - sqlserverdata:/var/opt/mssql
+    restart: unless-stopped
+  
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "9001:6379"
+    mem_limit: 512m
+    cpus: 1.0
+    volumes:
+      - redis-data:/data
+    command:
+      - redis-server
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    restart: unless-stopped
+
+  urlshortenerapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build #we want to build docker image upto "build" stage in docker
+    container_name: urlshortenerapp
+    depends_on:
+      - redis
+      - mssql
+    cpus: 1.0
+    mem_limit: 512m
+    ports:
+        - "9002:8080"
+        - "9003:443"
+    environment:
+        - ASPNETCORE_ENVIRONMENT=Development
+        - ASPNETCORE_URLS=http://+:8080
+        - ConnectionStrings__shorturl=Server=mssql,1433;Database=reactivities;User Id=sa;Password=@Bcd.1234;TrustServerCertificate=True
+        - ConnectionStrings__redissocket=redis:6379
+    
+
+volumes:
+  sqlserverdata:
+  redis-data:
