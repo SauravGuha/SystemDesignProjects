@@ -1,5 +1,6 @@
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using UrlShortener.Data;
 using UrlShortener.Data.Models;
 using UrlShortener.Dtos;
@@ -108,8 +109,8 @@ public class UrlsController : ControllerBase
                     if (cacheValue == null)
                     {
                         //obtain the actual url
-                        var urlData = this.shortUrlDbContext.ShortUrls.
-                        FirstOrDefault(e => e.ShortCode == shortCode);
+                        var urlData = await this.shortUrlDbContext.ShortUrls.
+                        FirstOrDefaultAsync(e => e.ShortCode == shortCode, cancellationToken);
                         //every time database gets hit, record the counter
                         if (urlData != null)
                         {
