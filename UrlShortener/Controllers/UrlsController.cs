@@ -41,6 +41,8 @@ public class UrlsController : ControllerBase
                 idempotentKey,
                 cancellationToken);
 
+        this.logger.LogInformation("Post idempotency status:{0}", result);
+
         if (result == "IN_PROGRESS")
         {
             return Conflict(
@@ -60,8 +62,15 @@ public class UrlsController : ControllerBase
             });
         }
 
-        if (result == "ACQUIRED")
+        if (result == "ACQUIRED" || result == "NOT_FOUND")
         {
+            var completedValue = new CacheModels<string>
+            {
+                RequestStatus = RequestStatus.Completed,
+                Value = ""
+            };
+            await applicationCache.SetValueAsync(idempotentKey, completedValue,
+             cancellationToken);
             var hash =
                 shortCodeGenerator.GenerateShortCode(data.Url);
 
@@ -72,12 +81,7 @@ public class UrlsController : ControllerBase
             await shortUrlDbContext.SaveChangesAsync(
                 cancellationToken);
 
-            var completedValue =
-                new CacheModels<string>
-                {
-                    RequestStatus = RequestStatus.Completed,
-                    Value = hash
-                };
+            completedValue.Value = hash;
 
             await applicationCache.SetValueAsync(
                 idempotentKey,
