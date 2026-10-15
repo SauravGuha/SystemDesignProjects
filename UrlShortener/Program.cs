@@ -1,6 +1,4 @@
 
-using System.Net;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using UrlShortener.Data;
@@ -77,7 +75,8 @@ public class Program
         app.MapControllers();
 
         MigrateAsync(app.Services)
-        .GetAwaiter();
+        .GetAwaiter()
+        .GetResult();
 
         app.Run();
     }
