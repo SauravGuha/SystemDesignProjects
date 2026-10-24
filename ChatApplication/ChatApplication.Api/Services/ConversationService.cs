@@ -56,7 +56,7 @@ public class ConversationService
             new ConversationMember
             {
                 ConversationId = conversation.Id,
-                UserId = user1Id
+                UserId = user2Id
             });
 
             try
