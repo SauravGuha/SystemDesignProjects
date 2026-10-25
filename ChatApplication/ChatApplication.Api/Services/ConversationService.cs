@@ -64,7 +64,7 @@ public class ConversationService
                 await chatApplicationDbContext.SaveChangesAsync(token);
                 return conversation;
             }
-            catch (DbException)
+            catch (DbUpdateException)
             {
                 //may be another transaction added conversation
                 chatApplicationDbContext.ChangeTracker.Clear();

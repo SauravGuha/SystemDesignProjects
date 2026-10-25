@@ -1,4 +1,5 @@
 
+using ChatApplication.Api.Middleware;
 using ChatApplication.Api.Persistence;
 using ChatApplication.Api.Services;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,7 @@ public class Program
             builderOptions.UseSqlServer(builder.Configuration.GetConnectionString("chatappdb"));
         });
         builder.Services.AddScoped<ConversationService>();
+        builder.Services.AddSingleton<ExceptionHandlerMiddleware>();
 
         var app = builder.Build();
 
@@ -30,8 +32,10 @@ public class Program
             app.MapOpenApi();
         }
 
-        app.UseHttpsRedirection();
+        if (!app.Environment.IsDevelopment())
+            app.UseHttpsRedirection();
 
+        app.UseMiddleware<ExceptionHandlerMiddleware>();
         app.UseAuthorization();
 
         app.MapControllers();
