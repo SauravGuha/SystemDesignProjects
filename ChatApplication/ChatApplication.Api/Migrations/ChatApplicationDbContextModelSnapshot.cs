@@ -84,6 +84,52 @@ namespace ChatApplication.Api.Migrations
                     b.ToTable("ConversationMember", (string)null);
                 });
 
+            modelBuilder.Entity("ChatApplication.Api.Models.Entities.IdempotencyRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<TimeSpan>("ExpiresAt")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ResponseBody")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("ResponseStatusCode")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Operation", "Key")
+                        .IsUnique();
+
+                    b.ToTable("IdempotencyRequest", (string)null);
+                });
+
             modelBuilder.Entity("ChatApplication.Api.Models.Entities.Message", b =>
                 {
                     b.Property<Guid>("Id")
@@ -159,6 +205,15 @@ namespace ChatApplication.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ChatApplication.Api.Models.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ChatApplication.Api.Models.Entities.IdempotencyRequest", b =>
+                {
                     b.HasOne("ChatApplication.Api.Models.Entities.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")

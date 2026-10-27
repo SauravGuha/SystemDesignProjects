@@ -1,5 +1,8 @@
 
 using System.Data.Common;
+using System.Linq.Expressions;
+using System.Text.Json;
+using ChatApplication.Api.Models.DTOs;
 using ChatApplication.Api.Models.Entities;
 using ChatApplication.Api.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -78,6 +81,94 @@ public class ConversationService
             }
         }
 
+    }
+
+    public async Task<Conversation> CreateGroupConversation(CreateGroupConversationRequest request, string requestId,
+     CancellationToken token)
+    {
+        var defaultCondition = Expression.Equal(Expression.Constant(1), Expression.Constant(1));
+        var parameter = Expression.Parameter(typeof(User));
+
+        Expression memberCondition = Expression.Constant(false);
+        memberCondition = Expression.OrElse(memberCondition,
+        Expression.Equal(Expression.Property(parameter, nameof(User.Id)), Expression.Constant(request.UserId)));
+        foreach (var member in request.Members)
+        {
+            memberCondition = Expression.OrElse(memberCondition,
+            Expression.Equal(Expression.Property(parameter, nameof(User.Id)), Expression.Constant(member)));
+        }
+        defaultCondition = Expression.AndAlso(defaultCondition, memberCondition);
+        var whereExpression = Expression.Lambda<Func<User, bool>>(defaultCondition, parameter);
+
+        var memberValidation = await chatApplicationDbContext.Users.Where(whereExpression)
+        .ToListAsync(token);
+        if (memberValidation.Count != (1 + request.Members.Count()))
+            throw new KeyNotFoundException("Some users do not exist.");
+        else
+        {
+            var existingRequest = await chatApplicationDbContext
+            .IdempotencyRequests.FirstOrDefaultAsync(e => e.Key == requestId, token);
+            if (existingRequest != null)
+                return JsonSerializer.Deserialize<Conversation>(existingRequest.ResponseBody)!;
+            else
+            {
+                try
+                {
+                    using (var transaction = chatApplicationDbContext.Database.BeginTransaction())
+                    {
+                        var conversation = new Conversation
+                        {
+                            ConversationType = ConversationType.Group,
+                            Name = request.GroupName,
+                            CreatedBy = request.UserId.ToString(),
+                        };
+                        var idempotencyRequest = new IdempotencyRequest
+                        {
+                            Key = requestId,
+                            Operation = "CreateGroupConversation",
+                            UserId = request.UserId,
+                            ResponseBody = JsonSerializer.Serialize(conversation),
+                            RequestHash = "",
+                            ResponseStatusCode = 201
+                        };
+                        chatApplicationDbContext.IdempotencyRequests.Add(idempotencyRequest);
+
+                        chatApplicationDbContext.Conversations.Add(conversation);
+                        chatApplicationDbContext.ConversationMembers.Add(
+                            new ConversationMember
+                            {
+                                ConversationId = conversation.Id,
+                                UserId = request.UserId
+                            }
+                        );
+                        foreach (var member in request.Members)
+                        {
+                            chatApplicationDbContext.ConversationMembers.Add(
+                                new ConversationMember
+                                {
+                                    ConversationId = conversation.Id,
+                                    UserId = member
+                                }
+                            );
+                        }
+
+                        await chatApplicationDbContext.SaveChangesAsync(token);
+                        return conversation;
+                    }
+
+                }
+                catch (DbUpdateException)
+                {
+                    existingRequest = await chatApplicationDbContext
+                                .IdempotencyRequests.FirstOrDefaultAsync(e => e.Key == requestId, token);
+                    if (existingRequest != null)
+                        return JsonSerializer.Deserialize<Conversation>(existingRequest.ResponseBody)!;
+
+                    throw;
+                }
+
+            }
+        }
     }
 
     private Conversation? FindDirect(Guid user1Id, Guid user2Id)

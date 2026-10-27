@@ -20,6 +20,8 @@ public class ChatApplicationDbContext : DbContext
 
     public DbSet<ConversationMember> ConversationMembers { get; set; }
 
+    public DbSet<IdempotencyRequest> IdempotencyRequests { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(u =>
@@ -101,7 +103,33 @@ public class ChatApplicationDbContext : DbContext
             .IsRequired();
         });
 
+        modelBuilder.Entity<IdempotencyRequest>(ir =>
+        {
+            ir.ToTable(nameof(IdempotencyRequest));
 
+            ir.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(e => e.UserId);
+
+            ir.Property(e => e.Operation)
+            .HasMaxLength(500)
+            .IsRequired();
+
+            ir.Property(e => e.Key)
+            .HasMaxLength(500)
+            .IsRequired();
+
+            ir.Property(e => e.RequestHash)
+            .HasMaxLength(500)
+            .IsRequired();
+
+            ir.Property(e => e.ResponseBody)
+            .HasMaxLength(500)
+            .IsRequired();
+
+            ir.HasIndex(e => new { e.UserId, e.Operation, e.Key })
+            .IsUnique();
+        });
 
         base.OnModelCreating(modelBuilder);
     }
