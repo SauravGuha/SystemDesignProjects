@@ -55,6 +55,8 @@ services:
         - ASPNETCORE_URLS=http://+:8080
         - ConnectionStrings__shorturl=Server=mssql,1433;Database=reactivities;User Id=sa;Password=@Bcd.1234;TrustServerCertificate=True
         - ConnectionStrings__redissocket=redis:6379
+    volumes:
+        - ${HOME}/.vsdbg:/remote_debugger:ro
     
 
 volumes:
