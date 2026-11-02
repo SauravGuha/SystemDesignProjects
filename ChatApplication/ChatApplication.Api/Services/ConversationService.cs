@@ -171,6 +171,35 @@ public class ConversationService
         }
     }
 
+
+    public async Task<IEnumerable<ConversationResponse>> UserConversations(string userId, CancellationToken token)
+    {
+        var result = new List<ConversationResponse>();
+
+        var conversations = await this.chatApplicationDbContext.Conversations
+        .Join(this.chatApplicationDbContext.ConversationMembers, c => c.Id, cm => cm.ConversationId,
+        (c, cm) => new { c, cm })
+        .Where(r => r.cm.UserId.ToString().ToLower() == userId.ToLower())
+        .GroupBy(e => e.c)
+        .Select(r => new ConversationResponse
+        {
+            Id = r.Key.Id,
+            ConversationType = r.Key.ConversationType.ToString(),
+            CreatedBy = r.Key.CreatedBy,
+            Name = r.Key.Name,
+            CreatedAt = r.Key.CreatedAt,
+            ConversationMemberResponses = r.Select(e => new ConversationMemberResponse
+            {
+                JoinedAt = e.cm.JoinedAt,
+                LeftAt = e.cm.LeftAt,
+                UserId = e.cm.UserId
+            })
+        })
+        .ToListAsync(token);
+
+        return result;
+    }
+
     private Conversation? FindDirect(Guid user1Id, Guid user2Id)
     {
         return chatApplicationDbContext.Conversations.FirstOrDefault(e => e.DirectConversationUser1Id == user1Id &&
