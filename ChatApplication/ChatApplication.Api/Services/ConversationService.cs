@@ -1,5 +1,6 @@
 
 using System.Data.Common;
+using System.Globalization;
 using System.Linq.Expressions;
 using System.Text.Json;
 using ChatApplication.Api.Models.DTOs;
@@ -198,6 +199,42 @@ public class ConversationService
         .ToListAsync(token);
 
         return result;
+    }
+
+    public async Task<IEnumerable<MessageResponse>> GetDirectMessages(Guid user1, Guid user2, CancellationToken token, string? next)
+    {
+        var validUserCount = this.chatApplicationDbContext.Users.Count(e => e.Id == user1 || e.Id == user2);
+        if (validUserCount != 2)
+            throw new KeyNotFoundException("One or both users do not exist.");
+        else
+        {
+            var userId1 = user1.CompareTo(user2) > 0 ? user1 : user2;
+            var userId2 = user1.CompareTo(user2) > 0 ? user2 : user1;
+            var conversation = FindDirect(userId1, userId2);
+            if (conversation != null)
+            {
+                var filterDateTime = DateTime.UtcNow;
+                if (!string.IsNullOrWhiteSpace(next))
+                    filterDateTime = DateTime.Parse(next, CultureInfo.InvariantCulture);
+
+                var messages = await this.chatApplicationDbContext.Messages
+                .Where(e => e.ConversationId == conversation.Id && e.CreatedAt < filterDateTime)
+                .OrderByDescending(e => e.CreatedAt)
+                .Take(10)
+                .ToListAsync(token);
+
+                return messages.Select(m => new MessageResponse
+                {
+                    Content = m.Content,
+                    ClientMessageId = m.ClientMessageId,
+                    CreatedAt = m.CreatedAt,
+                    Id = m.Id,
+                    SenderId = m.SenderId
+                });
+            }
+
+            return new List<MessageResponse>();
+        }
     }
 
     private Conversation? FindDirect(Guid user1Id, Guid user2Id)

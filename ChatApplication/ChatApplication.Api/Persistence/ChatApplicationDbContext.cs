@@ -34,6 +34,8 @@ public class ChatApplicationDbContext : DbContext
 
             u.HasIndex(e => e.DisplayName).IsUnique();
 
+            u.Property(e => e.CreatedAt)
+            .HasConversion(e => e, e => DateTime.SpecifyKind(e, DateTimeKind.Utc));
         });
 
         modelBuilder.Entity<Conversation>(c =>
@@ -62,6 +64,9 @@ public class ChatApplicationDbContext : DbContext
             .HasFilter("[ConversationType] = N'Direct' " +
                         "AND [DirectConversationUser1Id] IS NOT NULL " +
                         "AND [DirectConversationUser2Id] IS NOT NULL");
+
+            c.Property(e => e.CreatedAt)
+.HasConversion(e => e, e => DateTime.SpecifyKind(e, DateTimeKind.Utc));
         });
 
         modelBuilder.Entity<Message>(m =>
@@ -84,6 +89,9 @@ public class ChatApplicationDbContext : DbContext
 
             m.HasIndex(e => new { e.ClientMessageId, e.SenderId })
             .IsUnique();
+
+            m.Property(e => e.CreatedAt)
+.HasConversion(e => e, e => DateTime.SpecifyKind(e, DateTimeKind.Utc));
         });
 
         modelBuilder.Entity<ConversationMember>(e =>
@@ -101,6 +109,9 @@ public class ChatApplicationDbContext : DbContext
             .WithMany()
             .HasForeignKey(cm => cm.UserId)
             .IsRequired();
+
+            e.Property(t => t.LeftAt)
+.HasConversion(t => t, t => DateTime.SpecifyKind(t, DateTimeKind.Utc));
         });
 
         modelBuilder.Entity<IdempotencyRequest>(ir =>
@@ -129,6 +140,9 @@ public class ChatApplicationDbContext : DbContext
 
             ir.HasIndex(e => new { e.UserId, e.Operation, e.Key })
             .IsUnique();
+
+            ir.Property(e => e.CreatedAt)
+.HasConversion(e => e, e => DateTime.SpecifyKind(e, DateTimeKind.Utc));
         });
 
         base.OnModelCreating(modelBuilder);

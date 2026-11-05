@@ -2,6 +2,13 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "C#: ChatApplication.Api Debug",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/ChatApplication/ChatApplication.Api/ChatApplication.Api.csproj"
+    },
+
+    {
       "name": "Attach to UrlShortener (Docker volume)",
       "type": "coreclr",
       "request": "attach",
