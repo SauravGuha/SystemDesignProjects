@@ -1,5 +1,4 @@
 
-using System.Data.Common;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Text.Json;
@@ -84,7 +83,7 @@ public class ConversationService
 
     }
 
-    public async Task<Conversation> CreateGroupConversation(CreateGroupConversationRequest request, string requestId,
+    public async Task<Conversation> CreateGroupConversation(CreateGroupConversationRequest request, string requestId, string operationName,
      CancellationToken token)
     {
         var defaultCondition = Expression.Equal(Expression.Constant(1), Expression.Constant(1));
@@ -107,8 +106,10 @@ public class ConversationService
             throw new KeyNotFoundException("Some users do not exist.");
         else
         {
+            var requestHash = request.GetHashCode();
             var existingRequest = await chatApplicationDbContext
-            .IdempotencyRequests.FirstOrDefaultAsync(e => e.Key == requestId, token);
+            .IdempotencyRequests.FirstOrDefaultAsync(e => e.Key == requestId && e.UserId == request.UserId
+            && e.Operation == operationName && e.RequestHash == requestHash.ToString(), token);
             if (existingRequest != null)
                 return JsonSerializer.Deserialize<Conversation>(existingRequest.ResponseBody)!;
             else
@@ -126,10 +127,10 @@ public class ConversationService
                         var idempotencyRequest = new IdempotencyRequest
                         {
                             Key = requestId,
-                            Operation = "CreateGroupConversation",
+                            Operation = operationName,
                             UserId = request.UserId,
                             ResponseBody = JsonSerializer.Serialize(conversation),
-                            RequestHash = "",
+                            RequestHash = request.GetHashCode().ToString(),
                             ResponseStatusCode = 201
                         };
                         chatApplicationDbContext.IdempotencyRequests.Add(idempotencyRequest);
@@ -154,6 +155,7 @@ public class ConversationService
                         }
 
                         await chatApplicationDbContext.SaveChangesAsync(token);
+                        await transaction.CommitAsync(token);
                         return conversation;
                     }
 
@@ -177,7 +179,7 @@ public class ConversationService
     {
         var result = new List<ConversationResponse>();
 
-        var conversations = await this.chatApplicationDbContext.Conversations
+        return await this.chatApplicationDbContext.Conversations
         .Join(this.chatApplicationDbContext.ConversationMembers, c => c.Id, cm => cm.ConversationId,
         (c, cm) => new { c, cm })
         .Where(r => r.cm.UserId.ToString().ToLower() == userId.ToLower())
@@ -197,8 +199,6 @@ public class ConversationService
             })
         })
         .ToListAsync(token);
-
-        return result;
     }
 
     public async Task<IEnumerable<MessageResponse>> GetDirectMessages(Guid user1, Guid user2, CancellationToken token, string? next)

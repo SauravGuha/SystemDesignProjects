@@ -33,7 +33,7 @@ public class ConversationController : ControllerBase
         {
             return BadRequest("Request-Id is absent");
         }
-        var conversation = await conversationService.CreateGroupConversation(request, requestid[0]!, token);
+        var conversation = await conversationService.CreateGroupConversation(request, requestid[0]!, nameof(CreateGroup), token);
         return Ok(conversation);
     }
 

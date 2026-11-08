@@ -8,4 +8,9 @@ public class CreateGroupConversationRequest
     public required string GroupName { get; set; }
 
     public required IEnumerable<Guid> Members { get; set; }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(UserId, GroupName, Members);
+    }
 }
