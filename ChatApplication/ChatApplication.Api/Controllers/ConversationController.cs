@@ -54,6 +54,14 @@ public class ConversationController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("groupmessage/{groupName}/{userId}")]
+    public async Task<IActionResult> GetGroupMessages(string groupName, Guid userId, CancellationToken token,
+[FromQuery] string next = "")
+    {
+        var result = await conversationService.GetGroupMessages(groupName, userId, token, next);
+        return Ok(result);
+    }
+
     [HttpPost("{conversationId}/message")]
     public async Task<IActionResult> CreateMessage(Guid conversationId, [FromBody] SendMessageRequest request,
      CancellationToken token)

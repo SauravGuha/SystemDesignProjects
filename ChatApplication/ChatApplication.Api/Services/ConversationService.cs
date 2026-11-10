@@ -239,8 +239,46 @@ public class ConversationService
         }
     }
 
+    public async Task<IEnumerable<MessageResponse>> GetGroupMessages(string groupName, Guid userId, CancellationToken token, string? next)
+    {
+        var conversation = this.chatApplicationDbContext.Conversations.Join(this.chatApplicationDbContext.ConversationMembers,
+        c => c.Id, cm => cm.ConversationId, (c, cm) => new { c, cm })
+        .FirstOrDefault(e => e.c.Name == groupName && e.cm.UserId == userId);
+        if (conversation == null)
+            throw new KeyNotFoundException("User doesn't belong to this group");
+        else
+        {
+            var filterDateTime = DateTime.UtcNow;
+            if (!string.IsNullOrWhiteSpace(next))
+                filterDateTime = DateTime.Parse(next, CultureInfo.InvariantCulture);
+
+            var messages = await this.chatApplicationDbContext.Messages
+            .Where(e => e.ConversationId == conversation.c.Id && e.CreatedAt < filterDateTime)
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(10)
+            .ToListAsync(token);
+
+            return messages.Select(m => new MessageResponse
+            {
+                Content = m.Content,
+                ClientMessageId = m.ClientMessageId,
+                CreatedAt = m.CreatedAt,
+                Id = m.Id,
+                SenderId = m.SenderId
+            });
+        }
+    }
+
     public async Task<MessageResponse> CreateConversationMessage(Guid conversationId, SendMessageRequest request, CancellationToken token)
     {
+        var isMember = await chatApplicationDbContext.ConversationMembers.AnyAsync(e =>
+        e.ConversationId == conversationId &&
+        e.UserId == request.SenderId &&
+        e.LeftAt == DateTime.MinValue,
+        token);
+        if (!isMember)
+            throw new KeyNotFoundException("Cannot send message to this conversation.");
+
         var existingConversation = await this.chatApplicationDbContext.Conversations
         .FirstOrDefaultAsync(e => e.Id == conversationId, token);
         if (existingConversation == null)
@@ -248,7 +286,7 @@ public class ConversationService
         else
         {
             var message = await this.chatApplicationDbContext.Messages.FirstOrDefaultAsync(e => e.ConversationId == conversationId
-            && e.ClientMessageId == request.ClientMessageId, token);
+            && e.ClientMessageId == request.ClientMessageId && e.SenderId == request.SenderId, token);
             if (message != null)
                 return new MessageResponse
                 {
@@ -280,7 +318,7 @@ public class ConversationService
                 {
                     chatApplicationDbContext.ChangeTracker.Clear();
                     message = await this.chatApplicationDbContext.Messages.FirstOrDefaultAsync(e => e.ConversationId == conversationId
-                    && e.ClientMessageId == request.ClientMessageId, token);
+                    && e.ClientMessageId == request.ClientMessageId && e.SenderId == request.SenderId, token);
                     if (message != null)
                         return new MessageResponse
                         {
