@@ -162,6 +162,7 @@ public class ConversationService
                 }
                 catch (DbUpdateException)
                 {
+                    chatApplicationDbContext.ChangeTracker.Clear();
                     existingRequest = await chatApplicationDbContext
                                 .IdempotencyRequests.FirstOrDefaultAsync(e => e.Key == requestId && e.UserId == request.UserId
             && e.Operation == operationName && e.RequestHash == requestHash, token);
@@ -235,6 +236,62 @@ public class ConversationService
             }
 
             return new List<MessageResponse>();
+        }
+    }
+
+    public async Task<MessageResponse> CreateConversationMessage(Guid conversationId, SendMessageRequest request, CancellationToken token)
+    {
+        var existingConversation = await this.chatApplicationDbContext.Conversations
+        .FirstOrDefaultAsync(e => e.Id == conversationId, token);
+        if (existingConversation == null)
+            throw new KeyNotFoundException("Conversation Id not found");
+        else
+        {
+            var message = await this.chatApplicationDbContext.Messages.FirstOrDefaultAsync(e => e.ConversationId == conversationId
+            && e.ClientMessageId == request.ClientMessageId, token);
+            if (message != null)
+                return new MessageResponse
+                {
+                    Content = message.Content,
+                    ClientMessageId = message.ClientMessageId,
+                    SenderId = message.SenderId
+                };
+            else
+            {
+                //new message
+                message = new Message
+                {
+                    ConversationId = conversationId,
+                    ClientMessageId = request.ClientMessageId,
+                    Content = request.Content
+                };
+                this.chatApplicationDbContext.Messages.Add(message);
+                try
+                {
+                    await this.chatApplicationDbContext.SaveChangesAsync(token);
+                    return new MessageResponse
+                    {
+                        Content = message.Content,
+                        ClientMessageId = message.ClientMessageId,
+                        SenderId = message.SenderId
+                    };
+                }
+                catch (DbUpdateException)
+                {
+                    chatApplicationDbContext.ChangeTracker.Clear();
+                    message = await this.chatApplicationDbContext.Messages.FirstOrDefaultAsync(e => e.ConversationId == conversationId
+                    && e.ClientMessageId == request.ClientMessageId, token);
+                    if (message != null)
+                        return new MessageResponse
+                        {
+                            Content = message.Content,
+                            ClientMessageId = message.ClientMessageId,
+                            SenderId = message.SenderId
+                        };
+
+                    throw;
+                }
+            }
         }
     }
 

@@ -15,7 +15,8 @@ public class CreateGroupConversationRequest
 
     public string GetHash()
     {
-        var members = this.Members.Select(e => e.ToString("N"));
+        var members = this.Members.OrderBy(e => e)
+        .Select(e => e.ToString("N"));
         var objectHash = UserId.ToString("N") + GroupName + string.Join(',', members);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(objectHash));
         return Convert.ToHexString(hash);

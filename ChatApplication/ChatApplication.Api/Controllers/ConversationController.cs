@@ -53,4 +53,12 @@ public class ConversationController : ControllerBase
         var result = await conversationService.GetDirectMessages(userId, userId2, token, next);
         return Ok(result);
     }
+
+    [HttpPost("{conversationId}/message")]
+    public async Task<IActionResult> CreateMessage(Guid conversationId, [FromBody] SendMessageRequest request,
+     CancellationToken token)
+    {
+        var result = await conversationService.CreateConversationMessage(conversationId, request, token);
+        return Ok(result);
+    }
 }
