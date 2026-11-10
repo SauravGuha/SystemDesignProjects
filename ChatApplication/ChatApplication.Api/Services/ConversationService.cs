@@ -106,10 +106,10 @@ public class ConversationService
             throw new KeyNotFoundException("Some users do not exist.");
         else
         {
-            var requestHash = request.GetHashCode();
+            var requestHash = request.GetHash();
             var existingRequest = await chatApplicationDbContext
             .IdempotencyRequests.FirstOrDefaultAsync(e => e.Key == requestId && e.UserId == request.UserId
-            && e.Operation == operationName && e.RequestHash == requestHash.ToString(), token);
+            && e.Operation == operationName && e.RequestHash == requestHash, token);
             if (existingRequest != null)
                 return JsonSerializer.Deserialize<Conversation>(existingRequest.ResponseBody)!;
             else
@@ -130,7 +130,7 @@ public class ConversationService
                             Operation = operationName,
                             UserId = request.UserId,
                             ResponseBody = JsonSerializer.Serialize(conversation),
-                            RequestHash = request.GetHashCode().ToString(),
+                            RequestHash = request.GetHash(),
                             ResponseStatusCode = 201
                         };
                         chatApplicationDbContext.IdempotencyRequests.Add(idempotencyRequest);
@@ -163,7 +163,8 @@ public class ConversationService
                 catch (DbUpdateException)
                 {
                     existingRequest = await chatApplicationDbContext
-                                .IdempotencyRequests.FirstOrDefaultAsync(e => e.Key == requestId, token);
+                                .IdempotencyRequests.FirstOrDefaultAsync(e => e.Key == requestId && e.UserId == request.UserId
+            && e.Operation == operationName && e.RequestHash == requestHash, token);
                     if (existingRequest != null)
                         return JsonSerializer.Deserialize<Conversation>(existingRequest.ResponseBody)!;
 

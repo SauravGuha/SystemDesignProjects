@@ -1,4 +1,8 @@
 
+
+using System.Security.Cryptography;
+using System.Text;
+
 namespace ChatApplication.Api.Models.DTOs;
 
 public class CreateGroupConversationRequest
@@ -9,8 +13,11 @@ public class CreateGroupConversationRequest
 
     public required IEnumerable<Guid> Members { get; set; }
 
-    public override int GetHashCode()
+    public string GetHash()
     {
-        return HashCode.Combine(UserId, GroupName, Members);
+        var members = this.Members.Select(e => e.ToString("N"));
+        var objectHash = UserId.ToString("N") + GroupName + string.Join(',', members);
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(objectHash));
+        return Convert.ToHexString(hash);
     }
 }
