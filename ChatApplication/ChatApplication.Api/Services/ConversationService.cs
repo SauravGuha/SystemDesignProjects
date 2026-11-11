@@ -301,7 +301,8 @@ public class ConversationService
                 {
                     ConversationId = conversationId,
                     ClientMessageId = request.ClientMessageId,
-                    Content = request.Content
+                    Content = request.Content,
+                    SenderId = request.SenderId
                 };
                 this.chatApplicationDbContext.Messages.Add(message);
                 try
