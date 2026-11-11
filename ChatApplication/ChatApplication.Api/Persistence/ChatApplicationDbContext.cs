@@ -91,7 +91,7 @@ public class ChatApplicationDbContext : DbContext
             .IsUnique();
 
             m.Property(e => e.CreatedAt)
-.HasConversion(e => e, e => DateTime.SpecifyKind(e, DateTimeKind.Utc));
+            .HasConversion(e => e, e => DateTime.SpecifyKind(e, DateTimeKind.Utc));
         });
 
         modelBuilder.Entity<ConversationMember>(e =>

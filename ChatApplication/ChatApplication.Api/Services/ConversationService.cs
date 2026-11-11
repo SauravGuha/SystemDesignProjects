@@ -5,6 +5,7 @@ using System.Text.Json;
 using ChatApplication.Api.Models.DTOs;
 using ChatApplication.Api.Models.Entities;
 using ChatApplication.Api.Persistence;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace ChatApplication.Api.Services;
@@ -292,7 +293,9 @@ public class ConversationService
                 {
                     Content = message.Content,
                     ClientMessageId = message.ClientMessageId,
-                    SenderId = message.SenderId
+                    SenderId = message.SenderId,
+                    CreatedAt = message.CreatedAt,
+                    Id = message.Id
                 };
             else
             {
@@ -312,21 +315,26 @@ public class ConversationService
                     {
                         Content = message.Content,
                         ClientMessageId = message.ClientMessageId,
-                        SenderId = message.SenderId
+                        SenderId = message.SenderId,
+                        CreatedAt = message.CreatedAt,
+                        Id = message.Id
                     };
                 }
-                catch (DbUpdateException)
+                catch (DbUpdateException ex)
                 {
                     chatApplicationDbContext.ChangeTracker.Clear();
-                    message = await this.chatApplicationDbContext.Messages.FirstOrDefaultAsync(e => e.ConversationId == conversationId
-                    && e.ClientMessageId == request.ClientMessageId && e.SenderId == request.SenderId, token);
-                    if (message != null)
-                        return new MessageResponse
-                        {
-                            Content = message.Content,
-                            ClientMessageId = message.ClientMessageId,
-                            SenderId = message.SenderId
-                        };
+                    if (ex.InnerException is SqlException sqlException && (sqlException.Number == 2601 || sqlException.Number == 2627))
+                    {
+                        message = await this.chatApplicationDbContext.Messages.FirstOrDefaultAsync(e => e.ConversationId == conversationId
+                        && e.ClientMessageId == request.ClientMessageId && e.SenderId == request.SenderId, token);
+                        if (message != null)
+                            return new MessageResponse
+                            {
+                                Content = message.Content,
+                                ClientMessageId = message.ClientMessageId,
+                                SenderId = message.SenderId
+                            };
+                    }
 
                     throw;
                 }
