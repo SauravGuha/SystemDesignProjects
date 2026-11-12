@@ -332,7 +332,9 @@ public class ConversationService
                             {
                                 Content = message.Content,
                                 ClientMessageId = message.ClientMessageId,
-                                SenderId = message.SenderId
+                                SenderId = message.SenderId,
+                                CreatedAt = message.CreatedAt,
+                                Id = message.Id
                             };
                     }
 
