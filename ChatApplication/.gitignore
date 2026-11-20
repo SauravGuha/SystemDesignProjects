@@ -17,6 +17,12 @@ Temp/
 *.csproj.user
 *.vspscc
 
+# Vite / React
+node_modules/
+dist/
+dist-ssr/
+*.local
+
 UrlShortener/obj/Debug/net10.0/UrlShortener.AssemblyInfo.cs
 UrlShortener/obj/Debug/net10.0/UrlShortener.AssemblyInfoInputs.cache
 
